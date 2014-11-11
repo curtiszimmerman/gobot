@@ -20,8 +20,10 @@ import (
 )
 
 type Connection struct {
-	host net.IP
-	port float64
+	host   *net.IPAddr
+	host_s string
+	port   float64
+	port_s string
 }
 
 func connect(cx Connection) Connection {
@@ -38,20 +40,20 @@ func options() Connection {
 	host_s, port_s := os.Args[1], os.Args[2]
 	port, err := strconv.ParseFloat(port_s, 64)
 	if err != nil {
-		Printf("[!] Cannot parse port! Dying...\n")
+		Printf("[!] Cannot parse port: ", err.Error(), " Dying...\n")
 		os.Exit(1)
 	}
 	if &port == nil {
 		Printf("[!] Invalid port! Dying...\n")
 		os.Exit(1)
 	}
-	host := net.ParseIP(host_s)
+	host, err := net.ResolveIPAddr("ip", host_s)
 	if &host == nil {
-		Printf("[!] Invalid address! Dying...\n")
+		Printf("[!] Could not resolve address! Dying...\n")
 		os.Exit(1)
 	}
 	Printf("[+] Application initialized...\n")
-	cx := Connection{host: host, port: port}
+	cx := Connection{host: host, host_s: host_s, port: port, port_s: port_s}
 	return cx
 }
 
@@ -74,6 +76,6 @@ func main() {
 	version()
 	cx := options()
 	// connect
-	Printf("[+] Connecting to %v:%v ...\n", cx.host, cx.port)
+	Printf("[+] Connecting to %v:%v (%v:%v)...\n", cx.host_s, cx.port_s, cx.host.String(), cx.port)
 	connect(cx)
 }
