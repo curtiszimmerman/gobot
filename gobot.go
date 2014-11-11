@@ -14,12 +14,13 @@ package main
 import (
 	//"flag"
 	. "fmt"
+	"net"
 	"os"
 	"strconv"
 )
 
 type Connection struct {
-	host string
+	host net.IP
 	port float64
 }
 
@@ -27,23 +28,38 @@ func connect(cx Connection) Connection {
 	return cx
 }
 
-func options() (host, port string) {
+func options() Connection {
 	//flag.StringVar(&host, "host", "irc.freenode.net", "remote IRC server (default irc.freenod.net)")
 	//flag.IntVar(&port, "port", 6667, "remote IRC port (default 6697)")
 	//flag.Parse()
 	if len(os.Args) != 3 {
 		usage()
 	}
-	host, port = os.Args[1], os.Args[2]
-	return
+	host_s, port_s := os.Args[1], os.Args[2]
+	port, err := strconv.ParseFloat(port_s, 64)
+	if err != nil {
+		Printf("[!] Cannot parse port! Dying...\n")
+		os.Exit(1)
+	}
+	if &port == nil {
+		Printf("[!] Invalid port! Dying...\n")
+		os.Exit(1)
+	}
+	host := net.ParseIP(host_s)
+	if &host == nil {
+		Printf("[!] Invalid address! Dying...\n")
+		os.Exit(1)
+	}
+	Printf("[+] Application initialized...\n")
+	cx := Connection{host: host, port: port}
+	return cx
 }
 
 func usage() {
-	version()
 	Printf("IRC bot written in Go by curtisz\n")
 	Printf("(https://github.com/curtiszimmerman/gobot)\n")
 	Printf("Released under MIT license (C) 2014\n")
-	Printf("\nUsage: gobot [OPTION]... HOST [PORT]\n")
+	Printf("\nUsage: %s [OPTION]... HOST [PORT]\n", os.Args[0])
 	Printf("  -l logfile		log to specified file (not yet implemented)\n\n")
 	os.Exit(1)
 }
@@ -55,13 +71,9 @@ func version() {
 }
 
 func main() {
-	host, port_s := options()
-	// connect
 	version()
-	Printf("[+] Connecting to %v:%v ...\n", host, port_s)
-	port, err := strconv.ParseFloat(port_s, 64)
-	if err != nil {
-		Printf("Error parsing options: %v\n", err)
-	}
-	connect(Connection{host: host, port: port})
+	cx := options()
+	// connect
+	Printf("[+] Connecting to %v:%v ...\n", cx.host, cx.port)
+	connect(cx)
 }
