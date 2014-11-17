@@ -223,17 +223,14 @@ func main() {
 	conn := connect(addr)
 	client := GetClient(conn)
 	client.addresses = addr
-	client.outbound <- "USER " + settings.nickname + " 0 * :" + settings.realname
+	data := 
+	client.outbound <- ("USER " + settings.nickname + " 0 * :" + settings.realname)
 
 	for {
 		// parse input
 		inbound := client.inbound
 		if len(inbound) > 0 {
 			Warning.Printf(inbound.toString())
-		}
-		if err != nil {
-			fmt.Printf("\n[!] Error receiving on socket: %v\n", err)
-			os.Exit(1)
 		}
 		message := strings.SplitN(inbound, ":", 3)
 		msg := Input{prefix: message[0], command: message[1], params: message[2]}
