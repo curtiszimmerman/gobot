@@ -22,6 +22,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"strconv"
 	"strings"
@@ -50,8 +51,8 @@ type Addresses struct {
 
 type Client struct {
 	addresses *Addresses
-	inbound   chan<- string
-	outbound  <-chan string
+	inbound   chan string
+	outbound  chan string
 	reader    *bufio.Reader
 	writer    *bufio.Writer
 }
@@ -153,7 +154,7 @@ func options(version *Version) (*Addresses, *Settings) {
 	//flag.StringVar(&host, "host", "irc.freenode.net", "remote IRC server (default irc.freenod.net)")
 	//flag.IntVar(&port, "port", 6667, "remote IRC port (default 6697)")
 	//flag.Parse()
-	if len(os.Args) != 3 {
+	if len(os.Args) != 5 {
 		usage()
 	}
 	host_s, port_s, nick, channel := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
@@ -185,7 +186,7 @@ func options(version *Version) (*Addresses, *Settings) {
 		altaltnick: nick + "__",
 		channel:    channel,
 		realname:   nick + v,
-		username:   nick + v,
+		username:   nick,
 		version:    v}
 	addr := &Addresses{host: host, host_s: host_s, port: port, port_s: port_s}
 	Info.Printf("application initialized...\n")
@@ -196,7 +197,7 @@ func usage() {
 	fmt.Printf("IRC bot written in Go by curtisz\n")
 	fmt.Printf("(https://github.com/curtiszimmerman/gobot)\n")
 	fmt.Printf("Released under MIT license (C) 2014\n")
-	fmt.Printf("\nUsage: %s [OPTION]... HOST [PORT]\n", os.Args[0])
+	fmt.Printf("\nUsage: %s [OPTION]... HOST [PORT] [NICK] [CHANNEL]\n", os.Args[0])
 	fmt.Printf("  -l logfile		log to specified file (not yet implemented)\n\n")
 	os.Exit(1)
 }
@@ -223,14 +224,22 @@ func main() {
 	conn := connect(addr)
 	client := GetClient(conn)
 	client.addresses = addr
-	data := 
-	client.outbound <- ("USER " + settings.nickname + " 0 * :" + settings.realname)
+	inbound := <-client.inbound
+
+	time.Sleep(2)
+	nick := "NICK " + settings.nickname + "\n"
+	Info.Printf("sending nickname info [%v]", nick)
+	client.outbound <- nick
+	// USER gobot gobot irc.freenode.net : gobotreal
+	ident := "USER " + settings.nickname + " " + settings.nickname + " " + addr.host_s + " :" + settings.realname + "\n"
+	Info.Printf("sending ident info [%v]", ident)
+	client.outbound <- ident
 
 	for {
 		// parse input
-		inbound := client.inbound
+		inbound = <-client.inbound
 		if len(inbound) > 0 {
-			Warning.Printf(inbound.toString())
+			Info.Printf(inbound)
 		}
 		message := strings.SplitN(inbound, ":", 3)
 		msg := Input{prefix: message[0], command: message[1], params: message[2]}
