@@ -242,7 +242,16 @@ func main() {
 			Info.Printf(inbound)
 		}
 		message := strings.SplitN(inbound, ":", 3)
-		msg := Input{prefix: message[0], command: message[1], params: message[2]}
+		msg := Input{prefix: "", command: "", params: ""}
+		if len(message) > 0 {
+			msg.prefix = message[0]
+		}
+		if len(message) > 1 {
+			msg.command = message[1]
+		}
+		if len(message) > 2 {
+			msg.params = message[2]
+		}
 		if msg.prefix == "" {
 
 		}
