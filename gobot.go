@@ -5,7 +5,7 @@
  * primary application driver
  * @author curtis zimmerman
  * @contact hey@curtisz.com
- * @license MIT
+ * @license AGPL
  * @version 0.0.2a
  */
 
@@ -16,6 +16,7 @@ package main
 import (
 	//"flag"
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +34,7 @@ import (
 \*/
 var (
 	Trace   *log.Logger
+	Debug   *log.Logger
 	Info    *log.Logger
 	Warning *log.Logger
 	Error   *log.Logger
@@ -47,6 +49,13 @@ type Addresses struct {
 	host_s string
 	port   int64
 	port_s string
+}
+
+type AuthServices struct {
+	enabled bool
+	broker  string
+	pass    string
+	user    string
 }
 
 type Client struct {
@@ -92,11 +101,12 @@ func GetClient(conn net.Conn) *Client {
 }
 
 // this excellent pattern comes from: www.goinggo.net/2013/11/using-log-package-in-go.html
-func Init(traceHandle io.Writer, infoHandle io.Writer, warningHandle io.Writer, errorHandle io.Writer) {
-	Trace = log.New(traceHandle, "TRACE: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Info = log.New(infoHandle, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Warning = log.New(warningHandle, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Error = log.New(errorHandle, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+func Init(traceHandle io.Writer, debugHandle io.Writer, infoHandle io.Writer, warningHandle io.Writer, errorHandle io.Writer) {
+	Trace = log.New(traceHandle, "[TRACE] ", log.Ldate|log.Ltime|log.Lshortfile)
+	Debug = log.New(debugHandle, "[DEBUG] ", log.Ldate|log.Ltime|log.Lshortfile)
+	Info = log.New(infoHandle, "[INFO ] ", log.Ldate|log.Ltime|log.Lshortfile)
+	Warning = log.New(warningHandle, "[WARNG] ", log.Ldate|log.Ltime|log.Lshortfile)
+	Error = log.New(errorHandle, "[ERROR] ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 type Input struct {
@@ -124,9 +134,12 @@ func (server *Server) flush() bool {
 type Settings struct {
 	altnick    string
 	altaltnick string
+	authpass   string
+	authuser   string
 	channel    string
 	nickname   string
 	username   string
+	password   string
 	realname   string
 	version    string
 }
@@ -151,13 +164,28 @@ func connect(addr *Addresses) net.Conn {
 }
 
 func options(version *Version) (*Addresses, *Settings) {
-	//flag.StringVar(&host, "host", "irc.freenode.net", "remote IRC server (default irc.freenod.net)")
-	//flag.IntVar(&port, "port", 6667, "remote IRC port (default 6697)")
-	//flag.Parse()
-	if len(os.Args) != 5 {
+
+	var config, host_s, port_s, nick, channel, password string
+	var auth bool
+
+	flag.StringVar(&config, "config", "", "configuration file to use.")
+	flag.StringVar(&host_s, "host", "irc.freenode.net", "remote IRC server.")
+	flag.StringVar(&port_s, "port", "6667", "remote IRC port.")
+	flag.StringVar(&nick, "nick", "gobot", "nickname to use.")
+	flag.StringVar(&channel, "channel", "gobot-test", "channel to connect to.")
+	flag.StringVar(&password, "password", "", "server passowrd to connect with.")
+	flag.BoolVar(&auth, "auth", false, "auth to services. boolean.")
+	flag.Parse()
+
+	/*if host_s == "" || port_s == "" {
 		usage()
 	}
-	host_s, port_s, nick, channel := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
+	if len(os.Args) > 4 {
+		host_s, port_s, nick, channel = os.Args[1], os.Args[2], os.Args[3], os.Args[4]
+	}
+	if len(os.Args) > 5 {
+		password = os.Args[5]
+	}*/
 	port, err := strconv.ParseInt(port_s, 10, 64)
 	if err != nil {
 		Warning.Printf("could not parse port: %v\n", err)
@@ -179,12 +207,20 @@ func options(version *Version) (*Addresses, *Settings) {
 		Info.Printf("could not parse nickname: %v\n")
 		nick = "gobot"
 	}
+	if &password == nil {
+		Info.Printf("not using password...\n")
+	}
+	/*authsvc := &AuthServices{
+		enabled: auth,
+	}*/
 	v := strconv.Itoa(version.major) + "." + strconv.Itoa(version.minor) + "." + strconv.Itoa(version.build) + version.phase
 	settings := &Settings{
+		//auth:       auth,
 		nickname:   nick,
 		altnick:    nick + "_",
 		altaltnick: nick + "__",
 		channel:    channel,
+		password:   password,
 		realname:   nick + v,
 		username:   nick,
 		version:    v}
@@ -196,8 +232,8 @@ func options(version *Version) (*Addresses, *Settings) {
 func usage() {
 	fmt.Printf("IRC bot written in Go by curtisz\n")
 	fmt.Printf("(https://github.com/curtiszimmerman/gobot)\n")
-	fmt.Printf("Released under MIT license (C) 2014\n")
-	fmt.Printf("\nUsage: %s [OPTION]... HOST [PORT] [NICK] [CHANNEL]\n", os.Args[0])
+	fmt.Printf("Released under MIT license (C) 2014-2015\n")
+	fmt.Printf("\nUsage: %s [OPTION]... HOST [PORT] [NICK] [CHANNEL] [PASSWORD]\n", os.Args[0])
 	fmt.Printf("  -l logfile		log to specified file (not yet implemented)\n\n")
 	os.Exit(1)
 }
@@ -215,7 +251,10 @@ func version() *Version {
 }
 
 func main() {
-	Init(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
+	Init(ioutil.Discard, os.Stdout, os.Stdout, os.Stdout, os.Stderr)
+
+	var logfile string
+	flag.StringVar(&logfile, "l", "", "log output to specified file (not yet implemented)")
 
 	version := version()
 	addr, settings := options(version)
@@ -227,6 +266,11 @@ func main() {
 	inbound := <-client.inbound
 
 	time.Sleep(2)
+	if settings.password != "" {
+		Info.Printf("sending server password info [hidden]")
+		pass := "PASS " + settings.password + "\n"
+		client.outbound <- pass
+	}
 	nick := "NICK " + settings.nickname + "\n"
 	Info.Printf("sending nickname info [%v]", nick)
 	client.outbound <- nick
